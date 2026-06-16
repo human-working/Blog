@@ -17,10 +17,10 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: "text", nullable: true })
   refreshToken: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: "text", nullable: true })
   mfaSecret: string | null;
 
   @Column({ default: false })

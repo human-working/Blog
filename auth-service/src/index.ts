@@ -10,10 +10,12 @@ const app = express();
 app.use(express.json());
 
 app.use("/api/auth", authRouter);
+console.log("DB_PASSWORD:", process.env.DB_PASSWORD);
 
 AppDataSource.initialize()
   .then(() => {
     console.log("Database connected");
+
 
     app.listen(3001, () => {
       console.log("Server running on http://localhost:3001");
