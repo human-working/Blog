@@ -10,6 +10,13 @@ export interface AuthRequest extends Request {
   };
 }
 
+// JWT Authentication Middleware
+// Extracts and verifies the Bearer token from the Authorization header
+// Attaches the decoded user payload (userId, email) to req.user
+// Stateless verification — no DB hit required, signature is verified mathematically
+// Short lived access tokens (15min) minimise risk if a token is stolen
+
+
 export const authenticate = (
   req: AuthRequest,
   res: Response,
