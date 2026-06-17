@@ -3,14 +3,20 @@ import express from "express";
 import dotenv from "dotenv";
 import { AppDataSource } from "./data-source";
 import authRouter from "./routes/auth";
+import rateLimit from "express-rate-limit";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-app.use("/api/auth", authRouter);
-console.log("DB_PASSWORD:", process.env.DB_PASSWORD);
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // max 10 requests per 15 minutes
+  message: { message: "Too many requests, please try again later" }
+});
+
+app.use("/api/auth", authLimiter, authRouter);
 
 AppDataSource.initialize()
   .then(() => {
