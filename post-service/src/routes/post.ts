@@ -25,19 +25,21 @@ router.get("/posts/search", async (req: Request, res: Response) => {
     const { q } = req.query;
     if (!q) return res.status(400).json({ message: "Search query required" });
 
-    const posts = await postRepo.find({
-
-      where: { title: ILike(`%${q}%`) },
-      order: { createdAt: "DESC" },
-      take: 20
-    });
+    const posts = await AppDataSource
+      .getRepository(Post)
+      .createQueryBuilder("post")
+      .where(
+        "to_tsvector('english', post.title || ' ' || post.content) @@ plainto_tsquery('english', :query)",
+        { query: q }
+      )
+      .orderBy("post.createdAt", "DESC")
+      .take(20)
+      .getMany();
 
     res.json(posts);
-
-  } catch(err){
-    res.status(400).json({ message: "Server Error" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err });
   }
-   
 });
 
 // gets post by user 
