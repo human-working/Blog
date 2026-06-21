@@ -32,6 +32,9 @@ export class Post {
   @Column({ default: false })
   hasMedia: boolean;
 
+  @Column({ type: "varchar"})
+  categorySlug: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
