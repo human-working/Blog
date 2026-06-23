@@ -66,6 +66,14 @@ A production-ready authentication service built with Express, TypeORM, and Postg
 - The user never sees a login screen — stays authenticated seamlessly for 7 days
 - Event driven pattern — only acts when something triggers it, no polling
 
+### Redis Caching
+- In-memory data store used to cache frequently accessed data — reads from Redis are sub-millisecond compared to a full database query
+- Expensive queries such as full text search (tsvector) and high traffic routes like `GET /posts` are cached to avoid hitting PostgreSQL on every request
+- Cache keys are scoped by route and parameters — `search:typescript`, `posts:category:general`, `posts:user:1` — so each unique query has its own cache entry
+- TTL (time to live) of 60-120 seconds depending on the route — cache automatically expires and refreshes, balancing freshness with performance
+- Cache invalidation on write — when a post is created or updated the relevant cache keys are deleted so stale data is never served
+- Allows the application to handle significantly higher concurrent load without scaling the database 
+
 ### Docker
 - PostgreSQL runs in a Docker container — no local install needed
 - Guarantees the same environment across all machines
