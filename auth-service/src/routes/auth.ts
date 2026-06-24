@@ -31,7 +31,7 @@ router.post("/register", validate(registerSchema), async (req: Request, res: Res
 });
 
 // LOGIN
-router.post("/login", validate(registerSchema), async (req: Request, res: Response) => {
+router.post("/login", validate(loginSchema), async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -42,7 +42,7 @@ router.post("/login", validate(registerSchema), async (req: Request, res: Respon
     if (!valid) return res.status(401).json({ message: "Invalid credentials" });
 
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: user.role},
       env.JWT_SECRET,
       { expiresIn: "15m" }
     );
@@ -79,7 +79,7 @@ router.post("/refresh", async (req: Request, res: Response) => {
     }
 
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: user.role},
       env.JWT_SECRET,
       { expiresIn: "15m" }
     );

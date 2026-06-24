@@ -5,6 +5,7 @@ import { Media } from "./entities/Media";
 import { Post } from "./entities/Post";
 import { Reply } from "./entities/Reply";
 import { Category } from "./entities/Category";
+import { Flag } from "./entities/Flag";
 
 dotenv.config();
 
@@ -17,5 +18,5 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || "posts_db",
   synchronize: process.env.NODE_ENV !== "production",
   logging: process.env.NODE_ENV === "development",
-  entities: [Media, Post, Reply, Category],
-});
+  entities: [Media, Post, Reply, Category, Flag],
+});10

@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
   user?: {
     userId: number;
     email: string;
+    role: string;
   };
 }
 
@@ -34,7 +35,7 @@ export const authenticate = (
     const payload = jwt.verify(
       token!,
       env.JWT_SECRET
-    ) as unknown as { userId: number; email: string };
+    ) as unknown as { userId: number; email: string, role: string };
 
     req.user = payload;
     next();

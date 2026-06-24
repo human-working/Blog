@@ -19,7 +19,7 @@ router.post("/posts", authenticate, async (req: AuthRequest, res: Response) => {
     const post = postRepo.create({
       title, content, authorId, authorUsername,
       categorySlug, views: 0, likes: 0,
-      isPinned: false, isLocked: false, hasMedia: false
+      isPinned: false, isLocked: false, hasMedia: false, isFlagged: false,
     });
 
     await postRepo.save(post);
@@ -162,6 +162,28 @@ router.get("/posts", async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error", error: err });
   }
 });
+
+// get singular post 
+
+router.get("/posts/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cacheKey = `post:${id}`;
+
+    const cached = await redis.get(cacheKey);
+    if (cached) return res.json(JSON.parse(cached));
+
+    const post = await postRepo.findOne({ where: { id: Number(id) } });
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    await redis.set(cacheKey, JSON.stringify(post), "EX", 60);
+
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err });
+  }
+});
+
 
 // patch posts
 // uses authenticated middleware to prevent IDOR 

@@ -17,6 +17,9 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
+  @Column({ default: "user"})
+  role: string;
+
   @Column({ type: "text", nullable: true })
   refreshToken: string | null;
 

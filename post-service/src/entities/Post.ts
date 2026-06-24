@@ -30,6 +30,9 @@ export class Post {
   isLocked: boolean;
 
   @Column({ default: false })
+  isFlagged: boolean;
+
+  @Column({ default: false })
   hasMedia: boolean;
 
   @Column({ type: "varchar"})
