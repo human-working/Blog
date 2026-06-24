@@ -2,9 +2,11 @@ import { Router, Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { authenticate, AuthRequest } from "../middleware/authenticate";
 import { Reply } from "../entities/Reply";
+import { Post } from "../entities/Post";
 
 const router = Router();
 const replyRepo = AppDataSource.getRepository(Reply);
+const postRepo = AppDataSource.getRepository(Post);
 
 // create posts 
 // // uses authenticated middleware to prevent IDOR 
@@ -16,7 +18,7 @@ router.post("/reply", authenticate, async (req: AuthRequest, res: Response) => {
 
     const reply = replyRepo.create({
       content, authorId, authorUsername, postId,
-      likes: 0, isAiGenerated: false, hasMedia: false
+      likes: 0, isAiGenerated: false, hasMedia: false, isHidden: false
     });
 
     await replyRepo.save(reply);
@@ -30,7 +32,9 @@ router.post("/reply", authenticate, async (req: AuthRequest, res: Response) => {
 router.get("/reply/post/:postId", async (req: Request, res: Response) => {
   try {
     const replies = await replyRepo.find({
-      where: { postId: Number(req.params.postId) },
+      where: { 
+        postId: Number(req.params.postId), 
+        isHidden: false},
       order: { createdAt: "ASC" }
     });
 
@@ -46,7 +50,7 @@ router.get("/reply/post/:postId", async (req: Request, res: Response) => {
 router.delete("/reply/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const reply = await replyRepo.findOne({ where: { id: Number(req.params.id) } });
-    if (!reply) return res.status(404).json({ message: "Reply not found" });
+    if (!reply || reply.isHidden) return res.status(404).json({ message: "Reply not found" });
 
     if (reply.authorId !== req.user!.userId) {
       return res.status(403).json({ message: "You can only delete your own replies" });
@@ -64,7 +68,7 @@ router.delete("/reply/:id", authenticate, async (req: AuthRequest, res: Response
 router.patch("/reply/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const reply = await replyRepo.findOne({ where: { id: Number(req.params.id) } });
-    if (!reply) return res.status(404).json({ message: "Reply not found" });
+    if (!reply || reply.isHidden) return res.status(404).json({ message: "Reply not found" });
 
     if (reply.authorId !== req.user!.userId) {
       return res.status(403).json({ message: "You can only edit your own replies" });

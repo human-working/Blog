@@ -21,7 +21,9 @@ router.get("/categories", async (req: Request, res: Response) => {
   }
 });
 
-// create category - admin only functionality
+// create category - admin only functionality - need to add admin authentication
+
+
 router.post("/categories", async (req: Request, res: Response) => {
   try {
     const { name, description, slug } = req.body;

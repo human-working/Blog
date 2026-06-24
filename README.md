@@ -26,6 +26,7 @@ A production-ready authentication service built with Express, TypeORM, and Postg
 - TypeORM + PostgreSQL
 - Docker
 - JWT (jsonwebtoken)
+- Redis
 - bcrypt
 - Zod
 - Cloudinary
@@ -111,12 +112,51 @@ A production-ready authentication service built with Express, TypeORM, and Postg
 
 ## API Routes - Post MicroService
 
-| Method | Route | Description | Post |
+### Posts
+| Method | Route | Description | Auth |
 |--------|-------|-------------|------|
-| GET | /api/posts/user/:userId | Get posts by useId | ❌ |
-| GET | /api/posts/search | Searches post by title | ❌ |
-| GET | "/api/posts/category/:slug" | Gets posts by Category| ❌ |
-| GET | /api/posts | Gets all posts | ❌ |
+| POST | /api/posts | Create a new post | ✅ |
+| GET | /api/posts | Get all posts | ❌ |
+| GET | /api/posts/:id | Get single post by id | ❌ |
+| GET | /api/posts/user/:userId | Get posts by userId | ❌ |
+| GET | /api/posts/search | Full text search posts | ❌ |
+| GET | /api/posts/category/:slug | Get posts by category | ❌ |
+| PATCH | /api/posts/:id | Update a post | ✅ |
+| DELETE | /api/posts/:id | Soft delete a post | ✅ |
+
+### Replies
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| POST | /api/reply | Create a reply | ✅ |
+| GET | /api/reply/post/:postId | Get replies by postId | ❌ |
+| PATCH | /api/reply/:id | Update a reply | ✅ |
+| DELETE | /api/reply/:id | Delete a reply | ✅ |
+
+### Media
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| POST | /api/media/upload | Upload image or video | ✅ |
+| GET | /api/media/post/:postId | Get media by postId | ❌ |
+| GET | /api/media/reply/:replyId | Get media by replyId | ❌ |
+| PATCH | /api/media/:id | Update media | ✅ |
+| DELETE | /api/media/:id | Delete media | ✅ |
+
+### Categories
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| POST | /api/categories | Create a category | ✅ |
+| GET | /api/categories | Get all categories | ❌ |
+
+### Flags
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| POST | /api/flags | Flag a post or reply | ✅ |
+| GET | /api/flags | Get all pending flags | ✅ 🛡️ |
+| GET | /api/flags/mine | Get flags reviewed by logged in mod | ✅ 🛡️ |
+| PATCH | /api/flags/:id | Update flag status | ✅ 🛡️ |
+
+> 🛡️ Moderator access required
+> ✅ Requires authentication (Bearer token)
 
 
 ## Running Locally

@@ -88,7 +88,7 @@ router.get("/media/reply/:replyId", async (req: Request, res: Response) => {
   }
 });
 
-// delte media — only uploader can delete
+// delte media — only uploader can delete - this should cascade
 router.delete("/media/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const media = await mediaRepo.findOne({ where: { id: Number(req.params.id) } });
