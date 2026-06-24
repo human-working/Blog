@@ -16,6 +16,9 @@ export class Media {
 
   @Column()
   mimetype: string;
+  
+  @Column({ default: false })
+  isHidden: boolean;
 
   @Column()
   size: number;

@@ -3,7 +3,8 @@ import { AppDataSource } from "../data-source";
 import { Post } from "../entities/Post";
 import redis from "../redis";
 import { authenticate, AuthRequest } from "../middleware/authenticate";
-import { id } from "zod/locales";
+import { createPostSchema, updatePostSchema } from "../schemas/post";
+import { validate } from "../middleware/validate";
 
 const router = Router();
 const postRepo = AppDataSource.getRepository(Post);
@@ -11,7 +12,7 @@ const postRepo = AppDataSource.getRepository(Post);
 // create posts 
 // // uses authenticated middleware to prevent IDOR 
 
-router.post("/posts", authenticate, async (req: AuthRequest, res: Response) => {
+router.post("/posts", authenticate, validate(createPostSchema), async (req: AuthRequest, res: Response) => {
   try {
     const { title, content, authorUsername, categorySlug } = req.body;
     const authorId = req.user!.userId; 
@@ -192,10 +193,8 @@ router.get("/posts/:id", async (req: Request, res: Response) => {
 // patch posts
 // uses authenticated middleware to prevent IDOR 
 
-router.patch("/posts/:id", authenticate, async (req: AuthRequest, res: Response) => {
+router.patch("/posts/:id", authenticate, validate(updatePostSchema), async (req: AuthRequest, res: Response) => {
   try {
-
-
 
     const post = await postRepo.findOne({ where: { id: Number(req.params.id) } });
     if (!post || post.isHidden) return res.status(404).json({ message: "Post not found" });

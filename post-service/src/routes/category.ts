@@ -1,7 +1,11 @@
 import { Router, Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Category } from "../entities/Category";
+import { createCategorySchema } from "../schemas/category";
+import { validate } from "../middleware/validate";
 import redis from "../redis";
+import { authenticate } from "../middleware/authenticate";
+import { requireAdmin } from "../middleware/administrator";
 
 const router = Router();
 const categoryRepo = AppDataSource.getRepository(Category);
@@ -24,7 +28,7 @@ router.get("/categories", async (req: Request, res: Response) => {
 // create category - admin only functionality - need to add admin authentication
 
 
-router.post("/categories", async (req: Request, res: Response) => {
+router.post("/categories", authenticate, requireAdmin, validate(createCategorySchema), async (req: Request, res: Response) => {
   try {
     const { name, description, slug } = req.body;
 

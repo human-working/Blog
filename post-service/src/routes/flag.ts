@@ -6,7 +6,7 @@ import { Reply } from "../entities/Reply";
 import redis from "../redis";
 import { authenticate, AuthRequest } from "../middleware/authenticate";
 import { requireModerator } from "../middleware/moderator";
-import { updateFlagSchema } from "../schemas/flag";
+import { updateFlagSchema, createFlagSchema } from "../schemas/flag";
 import { validate } from "../middleware/validate";
 
 const router = Router();
@@ -17,7 +17,7 @@ const replyRepo = AppDataSource.getRepository(Reply);
 // create flag
 // uses authenticated middleware to prevent IDOR 
 
-router.post("/flags", authenticate, async (req: AuthRequest, res: Response) => {
+router.post("/flags", authenticate, validate(createFlagSchema), async (req: AuthRequest, res: Response) => {
   try {
     const { reason, targetId, targetType } = req.body;
     const reportedBy = req.user!.userId;
@@ -70,7 +70,7 @@ router.patch("/flags/:id", authenticate, requireModerator, validate(updateFlagSc
 
 
             // cascades so all replies on post are also hidden
-            
+
             await replyRepo.update(
                     { postId: flag.targetId },
                     { isHidden: true }
