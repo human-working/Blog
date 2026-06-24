@@ -4,6 +4,7 @@ import { authenticate, AuthRequest } from "../middleware/authenticate";
 import { Reply } from "../entities/Reply";
 import { createReplySchema, updateReplySchema } from "../schemas/reply";
 import { validate } from "../middleware/validate";
+import { io } from "../index";
 
 const replyRouter = Router();
 const replyRepo = AppDataSource.getRepository(Reply);
@@ -23,6 +24,9 @@ replyRouter.post("/reply", authenticate, validate(createReplySchema), async (req
     });
 
     await replyRepo.save(reply);
+    // sends notification to all clients currently viewing the post 
+    
+    io.to(`post:${reply.postId}`).emit("new:reply", reply);
     res.status(201).json({ message: "Reply created successfully", reply });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
