@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Flag } from "../entities/Flag";
+import { Post } from "../entities/Post";
+import { Reply } from "../entities/Reply";
 import redis from "../redis";
 import { authenticate, AuthRequest } from "../middleware/authenticate";
 import { requireModerator } from "../middleware/moderator";
@@ -9,6 +11,8 @@ import { validate } from "../middleware/validate";
 
 const router = Router();
 const flagRepo = AppDataSource.getRepository(Flag);
+const postRepo = AppDataSource.getRepository(Post);
+const replyRepo = AppDataSource.getRepository(Reply);
 
 // create flag
 // uses authenticated middleware to prevent IDOR 
@@ -56,6 +60,31 @@ router.patch("/flags/:id", authenticate, requireModerator, validate(updateFlagSc
     flag.status = status;
     flag.moderatorNote = moderatorNote;
     flag.reviewedBy = req.user!.userId; 
+
+    if (status === "actioned") {
+        if (flag.targetType === "post") {
+            const post = await postRepo.findOne({ where: { id: flag.targetId } });
+            if (post) {
+            post.isHidden = true;
+            await postRepo.save(post);
+
+
+            // cascades so all replies on post are also hidden
+            
+            await replyRepo.update(
+                    { postId: flag.targetId },
+                    { isHidden: true }
+                );
+            }
+            
+        } else if (flag.targetType === "reply") {
+            const reply = await replyRepo.findOne({ where: { id: flag.targetId } });
+            if (reply) {
+            reply.isHidden = true;
+            await replyRepo.save(reply);
+            }
+        }
+        }
 
     await flagRepo.save(flag);
 
@@ -164,5 +193,5 @@ router.get("/flags", authenticate, requireModerator, async (req: AuthRequest, re
 
 });
 
-// delete flag 
+
 

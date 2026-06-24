@@ -24,6 +24,9 @@ export class Reply {
   isAiGenerated: boolean;
 
   @Column({ default: false })
+  isHidden: boolean;
+  
+  @Column({ default: false })
   hasMedia: boolean;
 
   @CreateDateColumn()

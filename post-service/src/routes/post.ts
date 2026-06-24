@@ -20,6 +20,7 @@ router.post("/posts", authenticate, async (req: AuthRequest, res: Response) => {
       title, content, authorId, authorUsername,
       categorySlug, views: 0, likes: 0,
       isPinned: false, isLocked: false, hasMedia: false, isFlagged: false,
+      isHidden: false
     });
 
     await postRepo.save(post);
@@ -126,7 +127,9 @@ router.get("/posts/category/:slug", async (req: Request, res: Response) => {
     if (cached) return res.json(JSON.parse(cached));
 
     const posts = await postRepo.find({
-      where: { categorySlug: req.params.slug as string },
+      where: { 
+        categorySlug: req.params.slug as string, 
+        isHidden: false } ,
       order: { createdAt: "DESC" }
     });
 
@@ -152,7 +155,8 @@ router.get("/posts", async (req: Request, res: Response) => {
     if (cached) return res.json(JSON.parse(cached));
 
     const posts = await postRepo.find({
-      order: { createdAt: "DESC" }
+        where: { isHidden: false },
+        order: { createdAt: "DESC" }
     });
 
     await redis.set("posts:all", JSON.stringify(posts), "EX", 60);
@@ -174,7 +178,7 @@ router.get("/posts/:id", async (req: Request, res: Response) => {
     if (cached) return res.json(JSON.parse(cached));
 
     const post = await postRepo.findOne({ where: { id: Number(id) } });
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post || post.isHidden) return res.status(404).json({ message: "Post not found" });
 
     await redis.set(cacheKey, JSON.stringify(post), "EX", 60);
 
@@ -194,7 +198,8 @@ router.patch("/posts/:id", authenticate, async (req: AuthRequest, res: Response)
 
 
     const post = await postRepo.findOne({ where: { id: Number(req.params.id) } });
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post || post.isHidden) return res.status(404).json({ message: "Post not found" });
+ 
 
     if (post.authorId !== req.user!.userId) {
       return res.status(403).json({ message: "You can only edit your own posts" });
@@ -216,7 +221,7 @@ router.patch("/posts/:id", authenticate, async (req: AuthRequest, res: Response)
 router.delete("/post/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const post = await postRepo.findOne({ where: { id: Number(req.params.id) } });
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post || post.isHidden) return res.status(404).json({ message: "Post not found" });
 
     if (post.authorId !== req.user!.userId) {
       return res.status(403).json({ message: "You can only delete your own posts" });
