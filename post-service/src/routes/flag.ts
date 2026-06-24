@@ -9,7 +9,7 @@ import { requireModerator } from "../middleware/moderator";
 import { updateFlagSchema, createFlagSchema } from "../schemas/flag";
 import { validate } from "../middleware/validate";
 
-const router = Router();
+const flagRouter = Router();
 const flagRepo = AppDataSource.getRepository(Flag);
 const postRepo = AppDataSource.getRepository(Post);
 const replyRepo = AppDataSource.getRepository(Reply);
@@ -17,7 +17,7 @@ const replyRepo = AppDataSource.getRepository(Reply);
 // create flag
 // uses authenticated middleware to prevent IDOR 
 
-router.post("/flags", authenticate, validate(createFlagSchema), async (req: AuthRequest, res: Response) => {
+flagRouter.post("/flags", authenticate, validate(createFlagSchema), async (req: AuthRequest, res: Response) => {
   try {
     const { reason, targetId, targetType } = req.body;
     const reportedBy = req.user!.userId;
@@ -43,7 +43,7 @@ router.post("/flags", authenticate, validate(createFlagSchema), async (req: Auth
 // update flag status - mod only
 
 
-router.patch("/flags/:id", authenticate, requireModerator, validate(updateFlagSchema), async (req: AuthRequest, res: Response) => {
+flagRouter.patch("/flags/:id", authenticate, requireModerator, validate(updateFlagSchema), async (req: AuthRequest, res: Response) => {
   try {
     const flag = await flagRepo.findOne({ where: { id: Number(req.params.id) } });
     if (!flag) return res.status(404).json({ message: "Flag not found" });
@@ -99,7 +99,7 @@ router.patch("/flags/:id", authenticate, requireModerator, validate(updateFlagSc
 
 // get all assigned flags -  mod only
 
-router.get("/flags/mine", authenticate, requireModerator, async (req: AuthRequest, res: Response) => {
+flagRouter.get("/flags/mine", authenticate, requireModerator, async (req: AuthRequest, res: Response) => {
   try {
     const cacheKey = "flags:mine";
 
@@ -124,7 +124,7 @@ router.get("/flags/mine", authenticate, requireModerator, async (req: AuthReques
 
 // show flagged post 
 
-router.get("/flags/:id", async (req: Request, res: Response) => {
+flagRouter.get("/flags/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const cacheKey = `flags:${id}`;
@@ -146,7 +146,7 @@ router.get("/flags/:id", async (req: Request, res: Response) => {
 
 // get all unactioned flags
 
-router.get("/flags/todo", authenticate, requireModerator, async (req: AuthRequest, res: Response) => {
+flagRouter.get("/flags/todo", authenticate, requireModerator, async (req: AuthRequest, res: Response) => {
   try {
     const cacheKey = "flags:pending";
 
@@ -172,7 +172,7 @@ router.get("/flags/todo", authenticate, requireModerator, async (req: AuthReques
 
 // get all flags
 
-router.get("/flags", authenticate, requireModerator, async (req: AuthRequest, res: Response) => { 
+flagRouter.get("/flags", authenticate, requireModerator, async (req: AuthRequest, res: Response) => { 
 
     try {
 
@@ -194,4 +194,4 @@ router.get("/flags", authenticate, requireModerator, async (req: AuthRequest, re
 });
 
 
-
+export default flagRouter;

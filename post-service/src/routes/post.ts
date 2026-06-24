@@ -6,13 +6,12 @@ import { authenticate, AuthRequest } from "../middleware/authenticate";
 import { createPostSchema, updatePostSchema } from "../schemas/post";
 import { validate } from "../middleware/validate";
 
-const router = Router();
+const postRouter = Router();
 const postRepo = AppDataSource.getRepository(Post);
 
 // create posts 
 // // uses authenticated middleware to prevent IDOR 
-
-router.post("/posts", authenticate, validate(createPostSchema), async (req: AuthRequest, res: Response) => {
+postRouter.post("/posts", authenticate, validate(createPostSchema), async (req: AuthRequest, res: Response) => {
   try {
     const { title, content, authorUsername, categorySlug } = req.body;
     const authorId = req.user!.userId; 
@@ -32,7 +31,7 @@ router.post("/posts", authenticate, validate(createPostSchema), async (req: Auth
 });
 // search post by title
 
-router.get("/posts/search", async (req: Request, res: Response) => {
+postRouter.get("/posts/search", async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
     if (!q) return res.status(400).json({ message: "Search query required" });
@@ -68,7 +67,7 @@ router.get("/posts/search", async (req: Request, res: Response) => {
 
 // gets post by user 
 
-router.get("/posts/user/:userId", async (req: Request, res: Response) => {
+postRouter.get("/posts/user/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const cacheKey = `posts:user:${userId}`;
@@ -93,7 +92,7 @@ router.get("/posts/user/:userId", async (req: Request, res: Response) => {
 
 // get all posts in descending order 
 
-router.get("/posts", async (req: Request, res: Response) => {
+postRouter.get("/posts", async (req: Request, res: Response) => {
   try {
 
     const cached = await redis.get("posts")
@@ -116,7 +115,7 @@ router.get("/posts", async (req: Request, res: Response) => {
 // get posts by category
 
 
-router.get("/posts/category/:slug", async (req: Request, res: Response) => {
+postRouter.get("/posts/category/:slug", async (req: Request, res: Response) => {
   try {
 
     // checks cache
@@ -147,7 +146,7 @@ router.get("/posts/category/:slug", async (req: Request, res: Response) => {
 
 // get all posts in descending order 
 
-router.get("/posts", async (req: Request, res: Response) => {
+postRouter.get("/posts", async (req: Request, res: Response) => {
   try {
 
     // checks cache for posts - frequently used query so caching is important 
@@ -170,7 +169,7 @@ router.get("/posts", async (req: Request, res: Response) => {
 
 // get singular post 
 
-router.get("/posts/:id", async (req: Request, res: Response) => {
+postRouter.get("/posts/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const cacheKey = `post:${id}`;
@@ -193,7 +192,7 @@ router.get("/posts/:id", async (req: Request, res: Response) => {
 // patch posts
 // uses authenticated middleware to prevent IDOR 
 
-router.patch("/posts/:id", authenticate, validate(updatePostSchema), async (req: AuthRequest, res: Response) => {
+postRouter.patch("/posts/:id", authenticate, validate(updatePostSchema), async (req: AuthRequest, res: Response) => {
   try {
 
     const post = await postRepo.findOne({ where: { id: Number(req.params.id) } });
@@ -217,7 +216,7 @@ router.patch("/posts/:id", authenticate, validate(updatePostSchema), async (req:
 })
 
 // delete reply — only owner can delete
-router.delete("/post/:id", authenticate, async (req: AuthRequest, res: Response) => {
+postRouter.delete("/post/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const post = await postRepo.findOne({ where: { id: Number(req.params.id) } });
     if (!post || post.isHidden) return res.status(404).json({ message: "Post not found" });
@@ -232,4 +231,6 @@ router.delete("/post/:id", authenticate, async (req: AuthRequest, res: Response)
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
   }
-});;
+});
+
+export default postRouter;

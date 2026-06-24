@@ -5,14 +5,14 @@ import { Reply } from "../entities/Reply";
 import { createReplySchema, updateReplySchema } from "../schemas/reply";
 import { validate } from "../middleware/validate";
 
-const router = Router();
+const replyRouter = Router();
 const replyRepo = AppDataSource.getRepository(Reply);
 
 
 // create posts 
 // // uses authenticated middleware to prevent IDOR 
 
-router.post("/reply", authenticate, validate(createReplySchema), async (req: AuthRequest, res: Response) => {
+replyRouter.post("/reply", authenticate, validate(createReplySchema), async (req: AuthRequest, res: Response) => {
   try {
     const { content, authorUsername, postId } = req.body;
     const authorId = req.user!.userId;
@@ -30,7 +30,7 @@ router.post("/reply", authenticate, validate(createReplySchema), async (req: Aut
 });
 
 // get replies by postId
-router.get("/reply/post/:postId", async (req: Request, res: Response) => {
+replyRouter.get("/reply/post/:postId", async (req: Request, res: Response) => {
   try {
     const replies = await replyRepo.find({
       where: { 
@@ -48,7 +48,7 @@ router.get("/reply/post/:postId", async (req: Request, res: Response) => {
 });
 
 // delete reply — only owner can delete
-router.delete("/reply/:id", authenticate, async (req: AuthRequest, res: Response) => {
+replyRouter.delete("/reply/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const reply = await replyRepo.findOne({ where: { id: Number(req.params.id) } });
     if (!reply || reply.isHidden) return res.status(404).json({ message: "Reply not found" });
@@ -66,7 +66,7 @@ router.delete("/reply/:id", authenticate, async (req: AuthRequest, res: Response
 });
 
 // patch reply — only owner can edit
-router.patch("/reply/:id", authenticate, validate(updateReplySchema), async (req: AuthRequest, res: Response) => {
+replyRouter.patch("/reply/:id", authenticate, validate(updateReplySchema), async (req: AuthRequest, res: Response) => {
   try {
     const reply = await replyRepo.findOne({ where: { id: Number(req.params.id) } });
     if (!reply || reply.isHidden) return res.status(404).json({ message: "Reply not found" });
@@ -83,3 +83,5 @@ router.patch("/reply/:id", authenticate, validate(updateReplySchema), async (req
     res.status(500).json({ message: "Server error", error: err });
   }
 });
+
+export default replyRouter;

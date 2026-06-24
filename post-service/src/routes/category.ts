@@ -7,11 +7,11 @@ import redis from "../redis";
 import { authenticate } from "../middleware/authenticate";
 import { requireAdmin } from "../middleware/administrator";
 
-const router = Router();
+const categoryRouter = Router();
 const categoryRepo = AppDataSource.getRepository(Category);
 
 // get all categories
-router.get("/categories", async (req: Request, res: Response) => {
+categoryRouter.get("/categories", async (req: Request, res: Response) => {
   try {
 
     // checks cache
@@ -28,7 +28,7 @@ router.get("/categories", async (req: Request, res: Response) => {
 // create category - admin only functionality - need to add admin authentication
 
 
-router.post("/categories", authenticate, requireAdmin, validate(createCategorySchema), async (req: Request, res: Response) => {
+categoryRouter.post("/categories", authenticate, requireAdmin, validate(createCategorySchema), async (req: Request, res: Response) => {
   try {
     const { name, description, slug } = req.body;
 
@@ -40,4 +40,4 @@ router.post("/categories", authenticate, requireAdmin, validate(createCategorySc
   }
 });
 
-export default router;
+export default categoryRouter;

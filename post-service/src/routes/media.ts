@@ -7,7 +7,7 @@ import { uploadMediaSchema } from "../schemas/media";
 import { validate } from "../middleware/validate";
 import { authenticate, AuthRequest } from "../middleware/authenticate";
 
-const router = Router();
+const mediaRouter = Router();
 const mediaRepo = AppDataSource.getRepository(Media);
 
 // store file in memory rather than disk
@@ -25,7 +25,7 @@ const upload = multer({
 });
 
 // upload media
-router.post("/media/upload", authenticate, validate(uploadMediaSchema), upload.single("file"), async (req: AuthRequest, res: Response) => {
+mediaRouter.post("/media/upload", authenticate, validate(uploadMediaSchema), upload.single("file"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file provided" });
 
@@ -67,15 +67,13 @@ router.post("/media/upload", authenticate, validate(uploadMediaSchema), upload.s
 });
 
 // get media by postId
-router.get("/media/post/:postId", async (req: Request, res: Response) => {
+mediaRouter.get("/media/post/:postId", async (req: Request, res: Response) => {
   try {
     const media = await mediaRepo.find({
       where: { postId: Number(req.params.postId)}
     });
 
-    if(media.isHidden){
-        res.status(403).json({ message: "Media does npt exist", error: err })
-    }
+   
     res.json(media);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
@@ -83,7 +81,7 @@ router.get("/media/post/:postId", async (req: Request, res: Response) => {
 });
 
 // get media by replyId
-router.get("/media/reply/:replyId", async (req: Request, res: Response) => {
+mediaRouter.get("/media/reply/:replyId", async (req: Request, res: Response) => {
   try {
     const media = await mediaRepo.find({
       where: { replyId: Number(req.params.replyId) }
@@ -95,7 +93,7 @@ router.get("/media/reply/:replyId", async (req: Request, res: Response) => {
 });
 
 // delete media — only uploader can delete
-router.delete("/media/:id", authenticate, async (req: AuthRequest, res: Response) => {
+mediaRouter.delete("/media/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const media = await mediaRepo.findOne({ where: { id: Number(req.params.id) } });
     if (!media) return res.status(404).json({ message: "Media not found" });
@@ -115,4 +113,4 @@ router.delete("/media/:id", authenticate, async (req: AuthRequest, res: Response
   }
 });
 
-export default router;
+export default mediaRouter;
