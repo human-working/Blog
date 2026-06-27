@@ -16,7 +16,7 @@ const authLimiter = rateLimit({
   message: { message: "Too many requests, please try again later" }
 });
 
-app.use("/api/auth", authLimiter, authRouter);
+app.use(authLimiter, authRouter);
 
 AppDataSource.initialize()
   .then(() => {

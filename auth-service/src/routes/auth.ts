@@ -56,9 +56,12 @@ router.post("/login", validate(loginSchema), async (req: Request, res: Response)
     const { email, password, captchaToken} = req.body;
 
     // uses Google v3 to veirfy whether is human
-    const isHuman = await verifyCaptcha(captchaToken);
-    if (!isHuman) {
-      return res.status(400).json({ message: "Captcha verification failed" });
+   
+    if (captchaToken) {
+        const isHuman = await verifyCaptcha(captchaToken);
+        if (!isHuman) {
+            return res.status(400).json({ message: "Captcha verification failed" });
+        }
     }
 
     const user = await userRepo.findOne({ where: { email } });
