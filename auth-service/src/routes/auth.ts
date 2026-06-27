@@ -5,6 +5,10 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { env } from "../env";
 import { validate } from "../middleware/validate";
+import { sendMfaCode } from "../twillo";
+import { verifyCaptcha } from "../captcha";
+import { sendVerificationEmail } from "../sendgrid";
+import crypto from "crypto";
 import { registerSchema, loginSchema } from "../schemas/auth";
 
 const router = Router();
@@ -13,7 +17,13 @@ const userRepo = AppDataSource.getRepository(User);
 // REGISTER
 router.post("/register", validate(registerSchema), async (req: Request, res: Response) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, username, password, captchaToken } = req.body;
+
+    // uses Google v3 to veirfy whether is human
+    const isHuman = await verifyCaptcha(captchaToken);
+    if (!isHuman) {
+      return res.status(400).json({ message: "Captcha verification failed" });
+    }
 
     const existing = await userRepo.findOne({ where: { email } });
     if (existing) {
@@ -24,7 +34,17 @@ router.post("/register", validate(registerSchema), async (req: Request, res: Res
     const user = userRepo.create({ email, username, password: hashed });
     await userRepo.save(user);
 
-    res.status(201).json({ message: "User registered successfully" });
+    // sends verification Token by Email
+
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    user.verificationToken = verificationToken;
+    await userRepo.save(user);
+
+    await sendVerificationEmail(email, verificationToken);
+
+    res.status(201).json({ message: "User registered successfully, please verify your email" });
+
+    
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
   }
@@ -33,7 +53,13 @@ router.post("/register", validate(registerSchema), async (req: Request, res: Res
 // LOGIN
 router.post("/login", validate(loginSchema), async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, captchaToken} = req.body;
+
+    // uses Google v3 to veirfy whether is human
+    const isHuman = await verifyCaptcha(captchaToken);
+    if (!isHuman) {
+      return res.status(400).json({ message: "Captcha verification failed" });
+    }
 
     const user = await userRepo.findOne({ where: { email } });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
@@ -41,22 +67,65 @@ router.post("/login", validate(loginSchema), async (req: Request, res: Response)
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Invalid credentials" });
 
+    // check MFA first before issuing tokens
+
+    if (user.mfaEnabled) {
+        const code = crypto.randomInt(100000, 999999).toString();
+        user.mfaCode = code;
+        user.mfaCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+        await userRepo.save(user);
+        await sendMfaCode(user.phone!, code);
+
+        return res.json({ message: "MFA code sent to your phone", mfaRequired: true });
+    }
+
+    // only allows user to proceed if email token has been verified 
+    
+    if (!user.isVerified) {
+    return res.status(401).json({ message: "Please verify your email before logging in" });
+    }
+
+    // only issue tokens if MFA not enabled or already verified
     const accessToken = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role},
-      env.JWT_SECRET,
-      { expiresIn: "15m" }
+        { userId: user.id, email: user.email, role: user.role },
+        env.JWT_SECRET,
+        { expiresIn: "15m" }
     );
 
     const refreshToken = jwt.sign(
-      { userId: user.id },
-      env.JWT_REFRESH_SECRET,
-      { expiresIn: "7d" }
+        { userId: user.id },
+        env.JWT_REFRESH_SECRET,
+        { expiresIn: "7d" }
     );
 
-    user.refreshToken = refreshToken;
+        user.refreshToken = refreshToken;
+        await userRepo.save(user);
+
+        res.json({ accessToken, refreshToken });
+
+    } catch (err) {
+
+        res.status(500).json({ message: "Server error", error: err });
+    }
+});
+
+// VERIFIES USING TOKEN
+
+router.get("/verify", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.query;
+
+    const user = await userRepo.findOne({
+      where: { verificationToken: token as string }
+    });
+
+    if (!user) return res.status(400).json({ message: "Invalid token" });
+
+    user.isVerified = true;
+    user.verificationToken = null;
     await userRepo.save(user);
 
-    res.json({ accessToken, refreshToken });
+    res.json({ message: "Email verified successfully" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err });
   }

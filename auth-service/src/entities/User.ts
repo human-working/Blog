@@ -14,20 +14,29 @@ export class User {
   @Column()
   password: string;
 
+  @Column({ default: "user" })
+  role: string;
+
   @Column({ default: false })
   isVerified: boolean;
 
-  @Column({ default: "user"})
-  role: string;
+  @Column({ type: "text", nullable: true })
+  verificationToken: string | null;
 
   @Column({ type: "text", nullable: true })
   refreshToken: string | null;
 
-  @Column({ type: "text", nullable: true })
-  mfaSecret: string | null;
+  @Column({ type: "varchar", nullable: true })
+  phone: string | null;
 
   @Column({ default: false })
   mfaEnabled: boolean;
+
+  @Column({ type: "varchar", nullable: true })
+  mfaCode: string | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  mfaCodeExpiry: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -101,14 +101,51 @@ A production-ready authentication service built with Express, TypeORM, and Postg
 - Cloud based media storage — images and videos uploaded by users are stored on Cloudinary rather than the application server
 - Multer handles `multipart/form-data` file uploads, streams the file to Cloudinary and saves the returned URL to the Media table
 
+### reCAPTCHA v3
+- Google's invisible bot detection — runs silently in the background, no "click the traffic lights" checkbox for real users
+- Frontend sends a captcha token with every register and login request
+- Backend verifies the token against Google's API and receives a score between 0.0 and 1.0 — 1.0 is very likely human
+- Requests scoring below 0.5 are rejected before touching any business logic
+- Protects against mass registration bots, credential stuffing and automated brute force attacks
+- v3 was chosen over v2 specifically because it's frictionless — legitimate users never know it's there
+
+### Twilio
+- SMS provider used to deliver MFA verification codes to users' phone numbers
+- 6 digit code generated using `crypto.randomInt` — cryptographically random, not predictable
+- Code expires after 10 minutes — stored in DB alongside expiry timestamp
+- After successful verification code is immediately nulled from DB — single use only
+- MFA check happens before JWT tokens are issued — a stolen password alone is not enough to access an account
+- Integrates directly with the login flow — if `mfaEnabled` is true on the user, SMS is sent and `mfaRequired: true` is returned instead of tokens
+
+### SendGrid
+- Transactional email service used for account verification emails
+- On registration a cryptographically random token is generated via `crypto.randomBytes(32)` and saved to the user
+- Token is sent as a link in the verification email — user clicks it to prove they own the email address
+- Unverified users are blocked from logging in — email ownership must be confirmed before account access is granted
+- Token is nulled from DB after successful verification — single use only
+- Prevents throwaway/fake email registrations and ensures a valid contact method exists for every account
+
 ## API Routes - Auth MicroService
 
+### Auth
 | Method | Route | Description | Auth |
 |--------|-------|-------------|------|
-| POST | /api/auth/register | Create new user | ❌ |
-| POST | /api/auth/login | Login and get tokens | ❌ |
-| POST | /api/auth/refresh | Get new access token | ❌ |
-| POST | /api/auth/logout | Invalidate refresh token | ❌ |
+| POST | /api/auth/register | Register new user, sends verification email | ❌ |
+| POST | /api/auth/login | Login with email + password, issues JWT tokens | ❌ |
+| POST | /api/auth/refresh | Exchange refresh token for new access token | ❌ |
+| POST | /api/auth/logout | Invalidate refresh token and end session | ✅ |
+| GET | /api/auth/verify | Verify email address via token link | ❌ |
+| GET | /api/auth/users/:id | Get user by id (internal service use only) | 🔒 |
+
+### MFA
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| POST | /api/auth/mfa/send | Send SMS verification code to user's phone | ✅ |
+| POST | /api/auth/mfa/verify | Verify SMS code and issue JWT tokens | ✅ |
+
+
+> ✅ Requires authentication (Bearer token)
+> 🔒 Internal service use only (x-internal-secret header required)
 
 ## API Routes - Post MicroService
 
@@ -165,23 +202,64 @@ A production-ready authentication service built with Express, TypeORM, and Postg
 # Start PostgreSQL
 docker run --name postgres -e POSTGRES_PASSWORD=yourpassword -p 5432:5432 -d postgres
 
-# Install dependencies
-npm install
+# Start Redis
+docker run --name redis -p 6379:6379 -d redis
 
-# Run in development
-npm run dev
+# Create databases
+docker exec -it postgres psql -U postgres -c "CREATE DATABASE auth_db;"
+docker exec -it postgres psql -U postgres -c "CREATE DATABASE posts_db;"
+
+# Install dependencies — run in each service folder
+cd auth-service && npm install
+cd ../post-service && npm install
+
+# Run services — each in a separate terminal
+cd auth-service && npm run dev
+cd post-service && npm run dev
 ```
 
 ## Environment Variables
+
+### auth-service
+
+
 ```
 DB_HOST=localhost
 DB_PORT=5432
+REDIS_HOST=localhost
+REDIS_PORT=6379
 DB_USER=postgres
-DB_PASSWORD=yourpassword
-DB_NAME=auth_db
+DB_PASSWORD=Johnyou145
+DB_NAME=posts_db
 NODE_ENV=development
-JWT_SECRET=yoursecret
-JWT_REFRESH_SECRET=yourrefreshsecret
+JWT_SECRET=supersecretjwtkey123
+JWT_REFRESH_SECRET=supersecretrefreshkey456
+INTERNAL_SERVICE_SECRET=somelongrandomstring
+CLOUDINARY_CLOUD_NAME=forumapp
+CLOUDINARY_API_KEY=386561424842296
+CLOUDINARY_API_SECRET=TzShGWIsKwyMDisWRR1g-c8a06w
+```
+
+
+### post-service
+
+
+```
+DB_HOST=localhost
+DB_PORT=5432
+REDIS_HOST=localhost
+REDIS_PORT=6379
+DB_USER=postgres
+DB_PASSWORD=Johnyou145
+DB_NAME=posts_db
+NODE_ENV=development
+JWT_SECRET=supersecretjwtkey123
+JWT_REFRESH_SECRET=supersecretrefreshkey456
+INTERNAL_SERVICE_SECRET=somelongrandomstring
+CLOUDINARY_CLOUD_NAME=forumapp
+CLOUDINARY_API_KEY=386561424842296
+CLOUDINARY_API_SECRET=TzShGWIsKwyMDisWRR1g-c8a06w
+
 ```
 
 ## Testing
@@ -192,3 +270,5 @@ JWT_REFRESH_SECRET=yourrefreshsecret
 - Environments let you swap between localhost and production URLs in one click
 - Each request can be saved and rerun — no need to retype body or headers each time
 - Equivalent to running curl in the terminal but with a GUI
+
+## AI PENTESTING TOOL
