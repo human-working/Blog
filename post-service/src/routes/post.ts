@@ -1,13 +1,21 @@
 import { Router, Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Post } from "../entities/Post";
+import { PostView } from "../entities/PostView";
+import { PostLike } from "../entities/PostLike";
+import geoip from "geoip-lite";
+import crypto from "crypto";
 import redis from "../redis";
-import { authenticate, AuthRequest } from "../middleware/authenticate";
+import { authenticate, AuthRequest, optionalAuth } from "../middleware/authenticate";
 import { createPostSchema, updatePostSchema } from "../schemas/post";
+import { createLikeSchema } from "../schemas/postlikes";
 import { validate } from "../middleware/validate";
+
 
 const postRouter = Router();
 const postRepo = AppDataSource.getRepository(Post);
+const viewRepo = AppDataSource.getRepository(PostView);
+const likeRepo = AppDataSource.getRepository(PostLike)
 
 // create posts 
 // // uses authenticated middleware to prevent IDOR 
@@ -167,9 +175,9 @@ postRouter.get("/posts", async (req: Request, res: Response) => {
   }
 });
 
-// get singular post 
+// get singular post & save as view 
 
-postRouter.get("/posts/:id", async (req: Request, res: Response) => {
+postRouter.get("/posts/:id", optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const cacheKey = `post:${id}`;
@@ -181,6 +189,48 @@ postRouter.get("/posts/:id", async (req: Request, res: Response) => {
     if (!post || post.isHidden) return res.status(404).json({ message: "Post not found" });
 
     await redis.set(cacheKey, JSON.stringify(post), "EX", 60);
+
+    // creates view 
+    const postId = Number(req.params.id);
+    const userId = req.user?.userId ?? null;
+
+    // get IP
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0] 
+      || req.socket.remoteAddress 
+      || "";
+
+    // hash IP for privacy
+    const ipHash = crypto.createHash("sha256").update(ip).digest("hex");
+
+    // lookup geo from IP
+    const geo = geoip.lookup(ip);
+
+    // cooldown check — don't count if viewed in last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentView = await viewRepo.findOne({
+      where: { 
+        postId, 
+        userId: userId ?? undefined
+      },
+      order: { viewedAt: "DESC" }
+    });
+
+    if (recentView && recentView.viewedAt > oneHourAgo) {
+      return res.json({ message: "View already recorded" });
+    }
+
+    const view = viewRepo.create({
+      postId,
+      userId,
+      ipHash,
+      country: geo?.country ?? null,
+      city: geo?.city ?? null,
+      region: geo?.region ?? null,
+      latitude: geo?.ll?.[0] ?? null,
+      longitude: geo?.ll?.[1] ?? null,
+    });
+
+    await viewRepo.save(view);
 
     res.json(post);
   } catch (err) {
@@ -232,5 +282,67 @@ postRouter.delete("/post/:id", authenticate, async (req: AuthRequest, res: Respo
     res.status(500).json({ message: "Server error", error: err });
   }
 });
+
+
+// record a view
+postRouter.post("/posts/:id/view", authenticate,  async (req: AuthRequest, res) => {
+  const view = viewRepo.create({
+    postId: Number(req.params.id),
+    userId: req.user?.userId ?? null,
+  });
+  await viewRepo.save(view);
+  res.json({ message: "View recorded" });
+});
+
+
+// toggle like
+postRouter.post("/posts/:id/like", authenticate, validate(createLikeSchema), async (req: AuthRequest, res) => {
+
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0] 
+      || req.socket.remoteAddress 
+      || "";
+
+    // hash IP for privacy
+  const ipHash = crypto.createHash("sha256").update(ip).digest("hex");
+
+    // lookup geo from IP
+  const geo = geoip.lookup(ip);
+
+  const existing = await likeRepo.findOne({
+    where: { postId: Number(req.params.id), userId: req.user!.userId }
+  });
+
+  if (existing) {
+    await likeRepo.remove(existing);
+    return res.json({ liked: false });
+  }
+
+  
+  const like = likeRepo.create({
+    postId: Number(req.params.id),
+    userId: req.user!.userId,
+    country: geo?.country ?? null,
+    city: geo?.city ?? null,
+    region: geo?.region ?? null,
+    latitude: geo?.ll?.[0] ?? null,
+    longitude: geo?.ll?.[1] ?? null,
+  });
+  
+  await likeRepo.save(like);
+  res.json({ liked: true });
+});
+
+// get like count + did I like this?
+postRouter.get("/posts/:id/likes", async (req: AuthRequest, res) => {
+
+
+  const count = await likeRepo.count({ where: { postId: Number(req.params.id) } });
+  const userLiked = req.user
+    ? !!(await likeRepo.findOne({ where: { postId: Number(req.params.id), userId: req.user.userId } }))
+    : false;
+
+  res.json({ count, userLiked });
+});
+
 
 export default postRouter;

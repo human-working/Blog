@@ -10,7 +10,7 @@ export interface AuthRequest extends Request {
     userId: number;
     email: string;
     role: string;
-  };
+  } | null ;
 }
 
 export const authenticate = (
@@ -36,5 +36,32 @@ export const authenticate = (
     next();
   } catch (err) {
     res.status(401).json({ message: "Invalid or expired token" });
+  }
+};
+
+// used for public functions like viewing posts, where view data is saved for logged in users
+export const optionalAuth = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const payload = jwt.verify(token!, env.JWT_SECRET) as any;
+
+    req.user = payload;
+
+    return next();
+  } catch {
+    req.user = null;
+    return next();
   }
 };
