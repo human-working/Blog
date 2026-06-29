@@ -17,7 +17,7 @@ export default function Home() {
         </div>
         <div className="bnav-links">
           <a href="/login">Log in</a>
-          <a href="/register">Sign up</a>
+          <a href="/rNPegister">Sign up</a>
         </div>
       </nav>
 
