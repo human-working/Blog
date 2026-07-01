@@ -57,6 +57,12 @@ app.use("/api/flags", createProxyMiddleware({
   pathRewrite: (path) => path, 
 }));
 
+app.use("/api/ml", createProxyMiddleware({
+  target: "http://localhost:3004",
+  changeOrigin: true,
+  pathRewrite: { "^/api/ml": "" }
+}));
+
 app.listen(3000, () => {
   console.log("Gateway running on http://localhost:3000");
 });

@@ -12,24 +12,71 @@ Geographic relevance is also incorporated into the ranking system. Posts are pri
 
 Finally, a controlled randomness component is included to promote content diversity and reduce repetition within the feed. This introduces a small proportion of randomly selected posts below a defined engagement threshold, allowing the system to surface less dominant but potentially interesting content. This helps balance exploitation of high-performing posts with exploration of new or less visible content.
 
+### Signal Pipeline
 
-# ML Service
+#### 1. Sentence Transformer Embeddings
+Post titles and content are encoded into dense vector representations using `sentence-transformers/all-MiniLM-L6-v2`. This converts raw text into a 384-dimensional semantic vector where similar topics cluster together in vector space — "JWT security" and "authentication vulnerabilities" end up geometrically close even though they share no exact words.
 
-A production-ready  machine learning model that recommends posts to a user based on the following breakdown:
+#### 2. User Taste Vector
+The user's liked posts are embedded and averaged into a single vector representing their taste profile. This mean pooling approach captures the centroid of their interests across all liked content.
 
-if User is authorised: 
-    0.40 × Semantic Similarity to Users viewed posts 
+```python
+liked_embeddings = model.encode(liked_texts)
+user_vector = np.mean(liked_embeddings, axis=0)
+```
 
-    0.30 x Trending topics in the users 100km radius that have been posted in the last 10 days (temporal decay)
-        This pulls on engagment of (views & likes & replies, replies have a weighting of 0.5, likes 0.3, views 0.1) 
-        
-    0.20 x randomised posts in the last 5 days (temporal decay) 
-        May need to increase this to 
+#### 3. Cosine Similarity
+Each unseen post is embedded and its cosine similarity to the user taste vector is computed. Cosine similarity measures the angle between two vectors — 1.0 means identical direction (perfect match), 0.0 means orthogonal (no relation).
 
-else: 
-    0.60 x Trending topics in the users 100km radius that have been posted in the last 10 days
-        This pulls on engagment of (views & likes, likes valued more) 
-    0.40 x randomised posts in the last 5 days 
+```python
+similarity_scores = cosine_similarity(user_vector, post_embeddings)[0]
+```
+
+#### 4. Geographic Trending Score
+Posts are scored by engagement activity within the user's country over the last 10 days. Replies, likes and views are weighted differently to reflect intent — a reply signals far stronger interest than a passive view.
+score = (replies × 3.0) + (likes × 2.0) + (views × 1.0)
+
+
+#### 5. Signal Blending
+The final score combines both signals with tuned weights:
+final_score = (similarity × 0.55) + (geo_trending × 0.45)
+
+- **Similarity (55%)** — personalised taste match is the primary signal
+- **Geo trending (45%)** — what's engaging people in your country right now
+
+Weights were chosen to prioritise personal relevance while still surfacing locally trending content the user may not have discovered yet.
+
+#### 6. Discovery Injection
+The top 16 personalised posts are combined with 4 randomly sampled unseen posts, then shuffled. This 80/20 split prevents filter bubbles — pure personalisation causes users to only ever see content similar to what they already like, suppressing new topics and new authors.
+
+Random posts are flagged with `isDiscovery: true` so the frontend can optionally badge them as discoveries.
+
+---
+
+### Cold Start Handling
+New users with no liked posts have no taste vector to compute similarity against. The system falls back to geo-only scoring — surfacing what's trending in their country — until enough interaction data exists to build a meaningful taste profile.
+
+---
+
+### Anonymous Users
+Logged out users have no identity or history. The anonymous recommendation endpoint resolves their country from IP address using `ip-api.com` and returns geo-trending posts only, blended with random discovery posts.
+
+---
+
+### Score Breakdown
+Every recommendation includes a breakdown object explaining how the score was derived:
+
+```json
+{
+  "id": 42,
+  "score": 0.7823,
+  "breakdown": {
+    "similarity": 0.9124,
+    "geo_trending": 0.6200
+  },
+  "isDiscovery": false
+}
+```
 
 ## Tech Stack
 
