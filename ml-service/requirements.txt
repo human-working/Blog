@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sentence-transformers
+scikit-learn
+numpy
+psycopg2-binary
+python-dotenv
+httpx
+geoip2
